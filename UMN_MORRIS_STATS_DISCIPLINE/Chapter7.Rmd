@@ -1,0 +1,228 @@
+---
+title: "Chapter 7 Exploratory Data Analysis For One Quantitative Variable: by Groups & Chapter 8 Analysis of One Categorical Variable by another categorical variable"
+output: github_document
+---
+
+```{r}
+library(gapminder)
+library(tidyverse)
+```
+
+## 7.1 Summary Statistics: dplyr
+
+```{r}
+# Output presented in initial continent order (alphabetic)
+gapminder %>% filter(year==1997) %>% 
+  filter(continent != "Oceania") %>% 
+  group_by(continent) %>% 
+  summarise(meanLE=mean(lifeExp,na.rm=TRUE),
+            medLE=median(lifeExp,na.rm=TRUE),
+            sd=sd(lifeExp,na.rm=TRUE),
+            iqr=IQR(lifeExp,na.rm=TRUE),
+            Q1=quantile(lifeExp, probs=0.25,na.rm=TRUE),
+            Q3=quantile(lifeExp,probs=0.75),
+            n=n())
+```
+
+```{r}
+#
+# Output rows ordered by decreasing values of a statistic (mean Life Expectancy):
+gapminder %>% filter(year==1997) %>% 
+  filter(continent != "Oceania") %>% 
+  group_by(continent) %>%
+  summarise(meanLE=mean(lifeExp,na.rm=TRUE),
+            medLE=median(lifeExp,na.rm=TRUE),
+            sd=sd(lifeExp,na.rm=TRUE),
+            iqr=IQR(lifeExp,na.rm=TRUE),
+            min=min(lifeExp),
+            max=max(lifeExp),
+            n=n())  %>%
+  arrange(desc(meanLE))
+```
+
+```{r}
+gapminder %>% filter(year==1997) %>% 
+  filter(continent != "Oceania") %>% 
+  group_by(continent) %>% 
+  summarise(meanLE=mean(lifeExp,na.rm=TRUE),
+            medLE=median(lifeExp,na.rm=TRUE),
+            sd=sd(lifeExp,na.rm=TRUE),
+            iqr=IQR(lifeExp,na.rm=TRUE),
+            min=min(lifeExp),
+            max=max(lifeExp),
+            n=n(),.groups = 'drop')  %>% 
+  arrange(desc(meanLE)) %>%
+  knitr::kable()
+```
+
+## 7.2 Summary Statistics: skimr
+
+```{r}
+gapminder %>% filter(year==1997) %>% 
+  filter(continent != "Oceania") %>% 
+  group_by(continent) %>% 
+  skimr::skim_without_charts() %>%
+  skimr::yank("numeric") %>%
+  dplyr::filter(skim_variable %in% c("lifeExp","gdpPercap")) %>%
+  knitr::kable()
+```
+
+## 7.3 Graphical Displays of a quantitative variable, separated by groups
+
+In each example, the first lines create the dataset to be graphed - followed by a `ggplot` command making the display. Several of the examples make use of the principle of "small-multiples" so that each level of the factor variable has a separarate panel for the quantitative variable display.
+
+### 7.3.1 Dotplots
+
+```{r}
+ds <- gapminder %>% filter(year==1997) 
+#
+ggplot(data=ds,mapping=aes(x=lifeExp)) + 
+  geom_dotplot() + 
+  facet_wrap( ~ continent,ncol=2) + 
+  xlab("Life Expectancy (years)") +
+  ylab("Frequency")
+```
+
+### 7.3.2 Histograms
+
+```{r}
+gapminder %>% 
+  filter(year==1997) %>% 
+  filter(continent != "Oceania") %>% 
+  group_by(continent) %>%
+ggplot(data=., mapping=aes(x=lifeExp)) + 
+  geom_histogram(binwidth=5) + 
+  facet_wrap( ~ continent,ncol=2) + 
+  xlab("Life Expectancy (years)") +
+  ylab("Frequency")
+```
+
+### 7.3.3 Density Plots in Facets
+
+```{r}
+gapminder %>% 
+  filter(year==1997) %>% 
+  filter(continent != "Oceania") %>% 
+  group_by(continent) %>%
+ggplot(data=., mapping=aes(x=lifeExp, colour=continent, fill=continent)) + 
+  geom_density(alpha = 0.35) + 
+  xlab("Life Expectancy (years)") +
+  ylab("Density") +
+  facet_wrap( ~ continent, ncol = 2) +  
+  theme(legend.position = "none")
+```
+
+### 7.3.4 Overlaid Density Plots
+
+```{r}
+gapminder %>% 
+  filter(year==1997) %>% 
+  filter(continent != "Oceania") %>% 
+  group_by(continent) %>%
+ggplot(data=., mapping=aes(x=lifeExp, colour=continent, fill=continent)) + 
+  geom_density(alpha = 0.35) + 
+  xlab("Life Expectancy (years)") +
+  ylab("Density")
+```
+
+### 7.3.5 Boxplots, Grouped Data
+
+```{r}
+ds <- gapminder %>% 
+  filter(year==1997) %>% 
+  filter(continent != "Oceania") %>% 
+  group_by(continent) 
+#
+ggplot(data=ds, mapping=aes(x=continent,y=lifeExp)) +
+ geom_boxplot() + 
+  labs(x="Continent",y="Life Expectancy (years)")
+```
+
+## 8.1 Tables
+
+```{r}
+congage <- fivethirtyeight::congress_age
+ds1 <- congage %>% filter(congress > 112) %>% select(congress,chamber,state,party,incumbent,age) 
+#  We declare party and chamber as factor/categorical variables, and control their levels.
+ds1 <- ds1 %>% mutate(party = factor(party,levels=c("D","I","R")),
+                    chamber = factor(chamber))
+ds1 <- ds1 %>% na.omit()
+ds <- ds1  
+#
+table(ds$chamber,ds$party)
+```
+
+```{r}
+#
+mytable <- table(ds$chamber,ds$party)
+#
+prop.table(mytable) # cell percentages
+```
+
+```{r}
+# Use package janitor
+ds %>%  janitor::tabyl(chamber, party)
+```
+
+```{r}
+# row percentages
+t2 <- ds %>%  janitor::tabyl(chamber, party)
+t2 %>%
+  janitor::adorn_percentages("row") %>%
+  janitor::adorn_pct_formatting(digits = 2) %>%
+  janitor::adorn_ns()
+```
+
+```{r}
+# column percentages
+t2 %>%
+  janitor::adorn_percentages("col") %>%
+  janitor::adorn_pct_formatting(digits = 2) %>%
+  janitor::adorn_ns()
+```
+
+```{r}
+# both row and column percentages
+t2 %>%
+  janitor::adorn_percentages("all") %>%
+  janitor::adorn_pct_formatting(digits = 2) %>%
+  janitor::adorn_ns()
+```
+
+```{r}
+congage <- fivethirtyeight::congress_age
+ds1 <- congage %>% filter(congress > 112) %>% select(congress,chamber,state,party,incumbent,age) 
+#  We declare party and chamber as factor/categorical variables, and control their levels.
+ds1 <- ds1 %>% mutate(party = factor(party,levels=c("D","I","R")),
+                    chamber = factor(chamber))
+ds1 <- ds1 %>% na.omit()
+ds <- ds1  
+ds %>% group_by(chamber,party) %>% 
+  dplyr::count() %>% 
+  tidyr::pivot_wider(names_from = party, values_from = n)
+```
+
+## 8.2 Graphical Displays
+
+```{r}
+# basic bar plot of party affiliation
+ggplot(data=ds, mapping=aes(x=party)) + 
+  geom_bar() +
+  labs(x="Party", y="Count")
+```
+
+```{r}
+ds <- ds1 %>% group_by(party,chamber)
+#
+ggplot(data=ds, aes(x=chamber)) + 
+  geom_bar(aes(fill=party),position="dodge") +
+  labs(x="Chamber", y="Count")
+```
+
+```{r}
+#
+ggplot(data=ds, aes(x=party)) + 
+  geom_bar(aes(fill=party)) +
+  facet_wrap( ~ chamber) +
+  labs(x="Party", y="Count")
+```

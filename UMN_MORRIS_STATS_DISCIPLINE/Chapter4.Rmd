@@ -1,0 +1,201 @@
+---
+title: "Chapter 4 Introduction to Data Wrangling"
+output: github_document
+---
+
+```{r}
+library(gapminder)
+library(tidyverse)
+```
+
+## 4.1 Tidy Data
+
+What is tidy data? Tidy data is a standard way of mapping the meaning of a dataset to its structure. A dataset is messy or tidy depending on how rows, columns and tables are matched up with observations, variables and types. In tidy data:
+
+-   Each variable forms a column.
+
+-   Each observation forms a row.
+
+-   Each type of observational unit forms a table.
+
+## 4.2 Subset using filter
+
+```{r}
+#gapminder %>% filter(country=="Australia") %>% head(n=12)
+gapminder %>% dplyr::filter(country=="Australia") %>% head(n=12)
+```
+
+## 4.3 Subset using multiple conditions
+
+```{r}
+gapminder %>% 
+  dplyr::filter(continent=="Oceania" & year==1997) %>% 
+  head()
+
+```
+
+## 4.4 Saving as a new dataframe
+
+Here we save the the modified dataset as a new dataframe called gap97.
+
+```{r}
+gap97 <- gapminder %>% 
+  filter(continent!="Oceania" & year==1997) 
+#
+dplyr::glimpse(gap97)
+```
+
+```{r}
+gap97%>%summary()
+```
+
+## 4.5 Subset using select
+
+```{r}
+# the next command selects three variables and renames two of them:
+gapminder %>% 
+  dplyr::select(country, Year=year,LifeExp=lifeExp) %>% 
+  head(n=12)
+```
+
+The `profiling_num` command from the *funModeling* package produces a lot of output, some we might not want. We will show how to modify the output of this command here. The command produces a dataframe which has many columns we might not wish to display or consider further.
+
+We begin by removing some columns of summary statistics that we wish to ignore. Selecting a list of column names with a "minus" - sign in front of the list will remove these items from the dataframe and keep the rest in place. The command below pipes the modified dataframe to the `kable` command in the *knitr* package for a more pleasing tabular display.
+
+```{r}
+# Let's observe the contents of profiling_num:
+funModeling::profiling_num(gapminder) %>% 
+  dplyr::glimpse()
+```
+
+```{r}
+# now remove unwanted columns from summary display
+funModeling::profiling_num(gapminder) %>%
+  select(-c("variation_coef","skewness","kurtosis","range_98","range_80","p_01","p_99")) %>%
+  knitr::kable()
+```
+
+```{r}
+funModeling::profiling_num(gapminder) %>%
+  select(c("variable","mean","std_dev","p_25","p_50","p_75")) %>%
+  knitr::kable()
+```
+
+## 4.6 Order using arrange
+
+```{r}
+# This command will show the countries with highest life expectancy because 
+# the data are arranged in descending order of life expectancy (larger to smaller)
+gapminder %>% 
+  dplyr::filter(year==1997) %>%   
+  dplyr::select(country, continent, lifeExp) %>% 
+  dplyr::arrange(desc(lifeExp)) %>% 
+  head()
+```
+
+```{r}
+# This command uses the default ascending (increasing) order with
+# respect to life expectancy (order smaller to larger)
+gapminder %>% 
+  filter(year==1997) %>%  
+  select(country, continent, lifeExp) %>% 
+  arrange(lifeExp) %>% 
+  head()
+```
+
+## 4.7 Grouped Filter
+
+Another useful verb in the *tidyverse* is `group_by`. Suppose we wanted to view the two countries with the highest life expectancy in 1997, in each continent.
+
+```{r}
+gapminder %>% 
+  filter(year==1997) %>%  
+  select(country, continent, lifeExp, pop) %>%
+  dplyr::group_by(continent) %>%
+  dplyr::top_n(n=2,wt=lifeExp) %>%
+  dplyr::arrange(continent) %>%
+  knitr::kable()
+```
+
+## 4.8 New Variables Using Mutate
+
+```{r}
+gapminder %>%
+  dplyr::mutate(logpopulation = log(pop)) %>%
+  dplyr::glimpse()
+```
+
+```{r}
+gapVers1 <- gapminder %>%
+  dplyr::mutate(logpopulation = log(pop)) %>%
+  dplyr::rename(logPop=logpopulation) 
+#
+  dplyr::glimpse(gapVers1)
+```
+
+The `if_else` function from *dplyr* has the form \`if_else(logical condition,value if TRUE, value if FALSE).
+
+The next example uses the "T-pipe" function `%T>%` to break the piping so that the result of the second `mutate` flows to both `glimpse` and to `head` - in this construction, it is understood the output of `glimpse` does not pipe to `head`, but rather the original data flow from the second `mutate`.
+
+```{r}
+gapminder %>% 
+  dplyr::mutate(region = if_else(continent=="Oceania","Oceania","NotOceania")) %>%
+  dplyr::mutate(regionf = as_factor(region)) %T>%
+  dplyr::glimpse() %>%
+  head()
+```
+
+## 4.9 Simple Counting Using tally() and count()
+
+We frequently wish to know how many observations/rows satisfy a set of conditions. We will filter the observations for the given conditions, then count them using the `tally()` or `count()` functions from *dplyr*.
+
+Essentially, `count()` is a short-hand for `group_by() + tally()`.
+
+For example, what if we want to know how many observations are from continent 'Americas' in 1997.
+
+These examples have no grouping, no `group_by` is being used.
+
+```{r}
+gapminder %>% dplyr::filter(year==1997) %>%
+  dplyr::filter(continent=="Americas") %>%
+  dplyr::tally()
+
+```
+
+```{r}
+gapminder %>% dplyr::filter(year==1997) %>%
+  dplyr::group_by(continent) %>%
+  dplyr::filter(continent=="Americas") %>%
+  dplyr::tally()
+```
+
+## 4.10 Missing Values
+
+```{r}
+x <- c(1,2,NA,4)
+y <- c(11,12,13,NA)
+z <- c(7,8,9,10)
+tempdf <- data.frame(x,y,z)
+tempdf
+
+```
+
+```{r}
+# count missing values for variable x
+tempdf %>%
+  dplyr::summarise(count = sum(is.na(x)))
+```
+
+```{r}
+# count rows with missing y
+tempdf %>%
+  dplyr::tally(is.na(y))
+```
+
+```{r}
+# subset of rows with complete data for specified columns
+tempdf %>%
+  dplyr::select(y,z) %>%
+  tidyr::drop_na() %>%
+  head()
+```

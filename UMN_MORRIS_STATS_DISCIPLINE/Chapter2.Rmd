@@ -1,0 +1,50 @@
+---
+title: "Chapter 2 Getting Started"
+output: github_document
+---
+
+## 2.1 Packages
+
+```{r}
+library(knitr)
+library(tidyverse)
+```
+
+## 2.2 The tidyverse Package
+
+The tidyverse package is very special - it is a package of other packages. The tidyverse website [tidyverse](http://tidyverse.org/ "Title") describes the tidyverse as: *The tidyverse is an opinionated collection of R packages designed for data science. All packages share an underlying design philosophy, grammar, and data structures.*
+
+The most important packages inside the tidyverse package for this document are: dplyr, magrittr, and ggplot2.
+
+## 2.3 Gapminder Data
+
+```{r}
+library(gapminder)
+```
+
+## 2.4 Set Working Directory
+
+## 2.5 Reading Data from a CSV File
+
+The most common way to read data into R is from an excel spreadsheet that has been saved into a comma-separated-values (csv) file. This means that data elements are separated from each other by commas ",".
+
+We consider a data file named (file.csv) that contains variable names in the first row of the file. Place this file in your working directory and read,
+
+```         
+dataframe <- read.csv("file.csv",header=TRUE)
+```
+
+A frequent issue with `read.csv` is that character variables are automatically converted to factor/categorical variables. This may not be a good choice in many instances. To gain full control of how this is handled, you can prevent this kind of auto-conversion by using the `stringsAsFactors` option.
+
+```         
+cardata <- read.csv(file = 'carspeeds.csv', stringsAsFactors = FALSE)
+```
+
+The *readr* package inside the *tidyverse* family of packages has a slightly nicer read csv function you should know about. We use the `readr::` prefix to inform readers that the `read_csv` function resides in the *readr* package. This read function will not auto-convert character variables to category/factor variables.
+
+```         
+dataframe <- readr::read_csv("file.csv",col_names = TRUE)
+```
+
+```{r}
+```

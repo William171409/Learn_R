@@ -1,0 +1,94 @@
+---
+title: "Chapter 3 Overview of a Dataframe"
+output: github_document
+---
+
+```{r}
+library(gapminder)
+library(tidyverse)
+```
+
+## 3.1 glimpse
+
+Let's look at what is inside the gapminder dataset using the `glimpse` command from the *dplyr* package. The *dplyr* package is contained in the package "tidyverse" that was loaded previously. The `glimpse(gapminder)` command would have executed without any errors. We use the `dplyr::` prefix to inform readers that the glimpse function resides in the *dplyr* package.
+
+```{r}
+dplyr::glimpse(gapminder)
+```
+
+Each variable name is listed along with a variable type designation.
+
+-   fct: means a factor variable, also known as a categorical variable.
+
+-   int: means a quantitative variable that takes only integer or whole number values.
+
+-   dbl: means double precision, a quantitative variable that is essentially continuous - taking decimal values.
+
+## 3.2 head
+
+By default, the `head` command will show the first 6 rows of the dataset gapminder. Datasets in R are called "dataframes." The gapminder dataframe is denoted as a "tibble" which is a type of dataframe.
+
+Options to the `head` command can change the rows displayed.
+
+```{r}
+# default is to show 6 rows
+#head(gapminder)
+head(gapminder,n=13)
+```
+
+## 3.3 tail
+
+```{r}
+tail(gapminder)
+```
+
+## 3.4 summary
+
+```{r}
+summary(gapminder)
+```
+
+```{r}
+# usage of pipe operator
+# Same idea, but using tidyverse pipe
+gapminder %>% summary()
+
+```
+
+## 3.5 Dataframe Details: funModeling package
+
+The *funModeling* package contains the `df_status` command which also summarizes a dataframe - showing different aspects like missing values, percentage of zero values, and also the number of unique values.
+
+```{r}
+funModeling::df_status(gapminder)
+```
+
+```{r}
+funModeling::data_integrity(gapminder)
+```
+
+## 3.6 Dataframe Details: skimr package
+
+```{r}
+gapminder %>% 
+  skimr::skim_without_charts() 
+
+```
+
+## 3.7 describe: Hmisc package
+
+```{r}
+gapminder %>% 
+  Hmisc::describe() 
+```
+
+```{r}
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

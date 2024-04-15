@@ -1,0 +1,100 @@
+---
+title: "Chapter 6 Summary Statistics For One Variable"
+output: github_document
+---
+
+```{r}
+library(gapminder)
+library(tidyverse)
+```
+
+## 6.1 One Quantitative Variable
+
+### 6.1.1 Using base R summary function
+
+```{r}
+gapminder %>% filter(year==1997) %>% select(lifeExp) %>% summary()
+```
+
+### 6.1.2 Using dplyr summarise function
+
+```{r}
+gapminder %>% dplyr::filter(year==1997) %>% 
+      dplyr::summarise(meanLE=mean(lifeExp,na.rm=TRUE),
+                       medLE=median(lifeExp,na.rm=TRUE),
+                       sd=sd(lifeExp,na.rm=TRUE),
+                       iqr=IQR(lifeExp,na.rm=TRUE),
+                      Q1=quantile(lifeExp,probs=0.25,na.rm=TRUE),
+                      Q3=quantile(lifeExp,probs=0.75),
+                      n=n())
+```
+
+### 6.1.3 Summary Statistics Using funModeling package
+
+```{r}
+funModeling::profiling_num(gapminder)
+
+```
+
+### 6.1.4 Summary Statistics: skimr package
+
+The *skimr* package produces summary statistics about variables and overviews for dataframes. It is easy to manipulate and use pipes, select, and filter from the *tidyverse* family of packages.
+
+The next code supplies a dataframe that contains both categorical variables (continent), and numeric variables (lifeExp, gdpPercap). Numeric variables are chosen with the `yank` function, then some attributes are omitted from the display (n_missing, complete_rate) using the `select` function from dplyr.
+
+```{r}
+varlist <- c("n_missing","complete_rate")
+gapminder %>% filter(year==1997) %>% 
+  select(-year, -country, -pop) %>% 
+  skimr::skim_without_charts() %>%
+  skimr::yank("numeric") %>%
+  dplyr::select(-one_of(varlist))
+```
+
+## 6.2 One Categorical Variable
+
+### 6.2.1 Counting Values
+
+```{r}
+gapminder %>% count(continent)
+```
+
+### 6.2.2 Categorical variable: skimr package
+
+```{r}
+gapminder %>% filter(year==1997) %>% 
+  select(lifeExp,continent) %>% 
+  skimr::skim_without_charts() %>%
+  skimr::yank("factor") %>%
+  dplyr::select(-n_missing,-ordered,-complete_rate)
+```
+
+### 6.2.3 Categorical variable: funModeling package
+
+The *funModeling* package gives an easy way to learn about categorical variables of types: character and factor. There are two categorical variables in the gapminder dataframe: country and continent. There are a lot of countries, so we demonstrate this command for only the continent variable.
+
+```{r}
+# Frequency distribution of entire dataframe
+# will produce lots of output and warnings
+#funModeling::freq(gapminder)
+# next command for one category variable:  continent
+funModeling::freq(gapminder$continent)
+```
+
+### 6.2.4 Categorical variable: janitor package
+
+```{r}
+gapminder %>% 
+  filter(year==1997) %>%
+  select(continent) %>%
+  table()
+```
+
+```{r}
+#
+gapminder %>% 
+  filter(year==1997) %>%
+  janitor::tabyl(continent,sort=TRUE) %>%
+  janitor::adorn_pct_formatting(digits=2,affix_sign = TRUE) %>%
+  knitr::kable()
+```
