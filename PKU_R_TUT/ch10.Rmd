@@ -1,0 +1,138 @@
+---
+title: "Chapter10 Factor"
+output: github_document
+---
+
+## 10.1 Factor
+
+```{r}
+x <- c("男", "女", "男", "男",  "女")
+sex <- factor(x)
+sex
+## [1] 男 女 男 男 女
+## Levels: 男 女
+attributes(sex)
+## $levels
+## [1] "男" "女"
+## 
+## $class
+## [1] "factor"
+```
+
+```{r}
+levels(sex)
+## [1] "男" "女"
+class(sex)
+```
+
+```{r}
+as.numeric(sex)
+## [1] 1 2 1 1 2
+```
+
+## 10.2 cut()
+
+```{r}
+cut(1:10, breaks=c(0, 5, 10))
+```
+
+```{r}
+set.seed(1)
+x <- sort(round(rnorm(20), 2))
+f <- cut(x, breaks=4); f
+```
+
+## 10.3 table()
+
+```{r}
+table(sex)
+## sex
+## 男 女 
+##  3  2
+```
+
+## 10.4 tapply()
+
+```{r}
+h <- c(165, 170, 168, 172, 159)
+tapply(h, sex, mean)
+##       男       女 
+## 168.3333 164.5000
+```
+
+## 10.5 forcats package
+
+```{r}
+library(forcats)
+set.seed(1)
+fac <- sample(c("red", "green", "blue"), 30, replace=TRUE) |>
+  factor(levels=c("red", "green", "blue"))
+levels(fac)
+## [1] "red"   "green" "blue"
+fac3 <- fct_relevel(fac, "blue"); levels(fac3)
+## [1] "blue"  "red"   "green"
+```
+
+```{r}
+set.seed(1)
+fac <- sample(c("red", "green", "blue"), 30, replace=TRUE)
+fac <- factor(fac, levels=c("red", "green", "blue"))
+x <- round(100*(10+rt(30,2)))
+res1 <- tapply(x, fac, sd); res1
+##       red     green      blue 
+##  370.9222  138.3185 1129.2587
+barplot(res1)
+```
+
+```{r}
+fac2 <- fct_reorder(fac, x, sd)
+res2 <- tapply(x, fac2, sd)
+barplot(res2)
+```
+
+```{r}
+library(tidyverse)
+set.seed(101)
+d.rd <- tibble(
+  x = rep(1:100, 3),
+  f = factor(rep(1:3, each=100)),
+  y = c(cumsum(rnorm(100)), cumsum(rnorm(100)), cumsum(rnorm(100)))
+)
+d.rd
+```
+
+```{r}
+ggplot(d.rd, aes(
+  x = x, 
+  y = y, 
+  color = forcats::fct_reorder2(f, x, y))) +
+  geom_line() +
+  scale_color_discrete(name="")
+```
+
+Practice
+
+```{r}
+d.class <- read.csv('./data/class.csv', header=TRUE)
+sex <- d.class[,'sex']
+age <- d.class[,'age']
+```
+
+```{r}
+class(sex)
+class(age)
+```
+
+```{r}
+table(sex)
+```
+
+```{r}
+tapply(age,sex,max)
+```
+
+```{r}
+## 把sex变量转换为一个新的因子，F显示成“Female”，M显示成“Male”。
+d.class$sex <- factor(d.class$sex, levels = c("F", "M"), labels = c('Female', 'Male'))
+str(d.class)
+```

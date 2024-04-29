@@ -1,0 +1,162 @@
+---
+title: "Chapter7 Vectors Index and Subset"
+output: github_document
+---
+
+## 7.1 Positive Index
+
+```{r}
+x <- c(1, 4, 6.25)
+x[2]
+## [1] 4
+x[2] <- 99; x
+## [1]  1.00 99.00  6.25
+x[c(1,3)]
+## [1] 1.00 6.25
+x[c(1,3)] <- c(11, 13); x
+## [1] 11 99 13
+x[c(1,3,1)]
+## [1] 11 13 11
+```
+
+## 7.2 Negative Index
+
+```{r}
+x <- c(1,5,6.25)
+x[-2]
+## [1] 1.00 6.25
+x[-c(1,3)]
+## [1] 5
+```
+
+## 7.3 Empty Index
+
+```{r}
+x <- c(1,4,6.25)
+x[] <- 999
+x
+## [1] 999 999 999
+x <- c(1,4,6.25)
+x <- 999
+x
+## [1] 999
+```
+
+## 7.4 Out of Range
+
+```{r}
+x <- c(1,4,6.25)
+x[5]
+## [1] NA
+x
+## [1] 1.00 4.00 6.25
+x[5] <- 9
+x
+## [1] 1.00 4.00 6.25   NA 9.00
+```
+
+## 7.5 Logical Index
+
+```{r}
+x <- c(1,4,6.25)
+x[x > 3]
+## [1] 4.00 6.25
+```
+
+```{r}
+x <- c(1, 4, 6.25, NA)
+x[x > 2]
+## [1] 4.00 6.25   NA
+x[!is.na(x) & x > 2]
+## [1] 4.00 6.25
+```
+
+## 7.6 which()
+
+```{r}
+x <- c(3, 4, 3, 5, 7, 5, 9)
+which(x > 5)
+## [1] 5 7
+seq(along=x)[x > 5]
+## [1] 5 7
+```
+
+```{r}
+which.min(x)
+## [1] 1
+which.max(x)
+## [1] 7
+```
+
+## 7.7 Set Computation
+
+```{r}
+unique(c(1, 5, 2, 5))
+## [1] 1 5 2
+```
+
+```{r}
+5 %in% c(1,5,2)
+## [1] TRUE
+c(5,6) %in% c(1,5,2)
+## [1]  TRUE FALSE
+```
+
+```{r}
+match(5, c(1,5,2))
+## [1] 2
+match(5, c(1,5,2,5))
+## [1] 2
+match(c(2,5), c(1,5,2,5))
+## [1] 3 2
+match(c(2,5,0), c(1,5,2,5))
+## [1]  3  2 NA
+```
+
+```{r}
+intersect(c(5, 7), c(1, 5, 2, 5))
+## [1] 5
+```
+
+```{r}
+union(c(5, 7), c(1, 5, 2, 5))
+## [1] 5 7 1 2
+```
+
+```{r}
+setdiff(c(5, 7), c(1, 5, 2, 5))
+## [1] 7
+```
+
+```{r}
+setequal(c(1,5,2), c(2,5,1))
+## [1] TRUE
+setequal(c(1,5,2), c(2,5,1,5))
+## [1] TRUE
+```
+
+Practice
+
+```{r}
+d.class <- read.csv("./data/class.csv", header=TRUE, stringsAsFactors=FALSE)
+name <- d.class[,"name"]
+age <- d.class[,"age"]
+```
+
+```{r}
+## qns
+age[c(3,5,7)]
+age[age>=15]
+age[match(c("Mary","James"),name)]
+age1<-age[-(match(c("Mary","James"),name))]
+age1
+```
+
+```{r}
+#finale
+n<- 100
+x<-rev(c(1:n))
+y<-x[match(c(1:n),x)]
+x
+y
+```
