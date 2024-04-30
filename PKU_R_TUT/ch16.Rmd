@@ -1,0 +1,164 @@
+---
+title: "Chapter16 Flow Control"
+output: github_document
+---
+
+## 16.1 Expression
+
+```{r}
+{
+  x <- 15
+  x
+}
+```
+
+## 16.2 If/Else
+
+```{r}
+x <- c(0.05, 0.6, 0.3, 0.9)
+for(i in seq(along=x)){
+  if(x[i] <= 0.2){
+    cat("Small\n")
+  } else if(x[i] <= 0.8){
+    cat("Medium\n")
+  } else {
+    cat("Large\n")
+  }
+}
+```
+
+```{r}
+x <- c(0.05, 0.6, 0.3, -0.9)
+y <- numeric(length(x))
+y[x>0] <- 1
+y
+```
+
+```{r}
+x <- c(-2, 0, 1)
+y <- ifelse(x >=0, 1, 0); print(y)
+```
+
+```{r}
+ifelse((1:6) >= 3, 1:2, c(-1,-2))
+```
+
+```{r}
+gr_v <- c("A+", "A", "A-", "B+", "B", "B-", 
+  "C+", "C", "C-", "D+", "F", "EX")
+for(gr in gr_v){
+  switch(gr,
+    "A+" = 99,
+    "A" = 96,
+    "A-" = 92,
+    "B+" = 87,
+    "B" = 82,
+    "B-" = 78,
+    "C+" = 75,
+    "C" = 71,
+    "C-" = 68,
+    "D+" = 65,
+    "F" = 50,
+    NA)
+}
+```
+
+```{r}
+for(ch in c("a", "i", "c")){
+  cat(ch, ":", switch(ch,
+    "a"=, "e"=, "i"=, "o"=, "u" = "Vower",
+    "Consonant"), "\n")
+}
+```
+
+```{r}
+v <- c("A+", "A", "A-", "B+", "B", "B-", 
+  "C+", "C", "C-", "D+", "F", "EX")
+dplyr::case_when(
+    v == "A+" ~ 99,
+    v == "A" ~ 96,
+    v == "A-" ~ 92,
+    v == "B+" ~ 87,
+    v == "B" ~ 82,
+    v == "B-" ~ 78,
+    v == "C+" ~ 75,
+    v == "C" ~ 71,
+    v == "C-" ~ 68,
+    v == "D+" ~ 65,
+    v == "F" ~ 50)
+```
+
+```{r}
+x <- c("a", "i", "c")
+dplyr::case_when(
+  x %in% c("a", "e", "i", "o", "u") 
+  ~ "Vowel",
+  TRUE
+  ~ "Consonant"
+)
+```
+
+## 16.3 Loop
+
+```{r}
+set.seed(11); x <- rnorm(5)
+y <- numeric(length(x))
+for(i in 1:5){
+  if(x[i]>=0) y[i] <- 1 else y[i] <- 0
+}
+print(y)
+```
+
+Generally speaking, for loop should be avoided as it is slower than vectorized operations!
+
+```{r}
+## The example above can be written as following alternatively:
+set.seed(11); x <- rnorm(5)
+y <- ifelse(x >= 0, 1, 0)
+print(y)
+```
+
+-   如果直接对向量元素遍历， 这有可能会丢失向量的属性（如日期型）， 用下标访问则不存在此问题。
+
+```{r}
+x <- as.POSIXct(c("1981-05-31", "2020-02-22"))
+for(xi in x){print(xi)}
+```
+
+```{r}
+for(i in seq_along(x)){print(x[i])}
+```
+
+```{r}
+e0 <- exp(1.0)
+s <- 1.0
+x <- 1
+k <- 0
+repeat{
+  k <- k+1
+  x <- x/k
+  s <- s + x
+  
+  if(x < .Machine$double.eps) break
+}
+err <- s - e0
+cat("k=", k, " s=", s, " e=", e0, " 误差=", err, "\n")
+```
+
+## 16.4 Condition
+
+if语句和while语句中用到条件。 条件必须是标量值， 而且必须为TRUE或FALSE， 不能为NA或零长度。 这是R编程时比较容易出错的地方。
+
+## 16.5 Pipe Operator
+
+```{r}
+2 |> sqrt() |> exp()
+```
+
+```{r}
+asin(0.5) |> round(digits=4)
+```
+
+```{r}
+6 |> round(pi,  digits = _)
+```

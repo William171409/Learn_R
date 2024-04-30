@@ -1,0 +1,185 @@
+---
+title: "Chapter15 I/O Control"
+output: github_document
+---
+
+## 15.1 Input/Output
+
+```{r}
+x <- 1.234
+print(x)
+## [1] 1.234
+y <- c(1,3,5)
+print(y[2:3])
+## [1] 3 5
+```
+
+```{r}
+cat("x =", x, "\n")
+## x = 1.234
+cat("y =", y, "\n")
+## y = 1 3 5
+```
+
+```{r}
+cat("=== 结果文件 ===\n", file="res.txt")
+cat("x =", x, "\n", file="res.txt", append=TRUE)
+```
+
+## 15.2 CSV File
+
+```{r}
+library(readr)
+d.small <- read_csv("name,x,y
+John, 33, 95
+Kim, 21, 64
+Sandy, 49, 100
+")
+d.small
+```
+
+```{r}
+d <- read_csv("data/bp.csv", 
+  locale=locale(encoding="GBK"))
+d
+```
+
+```{r}
+d[["收缩压数值"]] <- as.numeric(d[["收缩压"]])
+d
+```
+
+```{r}
+d.class <- read_csv("data/class.csv")
+```
+
+```{r}
+d.class <- read_csv(
+  "data/class.csv", 
+  col_types=cols(
+  .default = col_double(),
+  name=col_character(),
+  sex=col_factor(levels=c("M", "F")) ))
+str(d.class)
+class(d.class)
+```
+
+```{r}
+d.dates <- read_csv('data/dates.csv')
+d.dates
+```
+
+```{r}
+d.dates[["birth_ct"]] <- as.POSIXct(
+  d.dates[["birth"]], format='%d/%m/%Y', tz='Etc/GMT-8')
+d.dates[["disease_ct"]] <- as.POSIXct(
+  d.dates[["disease"]], format='%d/%m/%Y', tz='Etc/GMT-8')
+```
+
+```{r}
+knitr::kable(d.dates)
+```
+
+## 15.3 Save Variables
+
+## 15.4 Access of Excel
+
+```{r}
+library(tibble)
+d1 <- tibble("学号"=c("101", "103", "104"),
+             "数学"=c(85, 60, 73), 
+             "语文"=c(90, 78, 80))
+write.csv(d1, file="tmp1.csv", row.names=FALSE)
+```
+
+## 15.5 data.table
+
+```{r}
+library(data.table)
+```
+
+```{r}
+d <- fread(
+  "data/class.csv", 
+  header = TRUE)
+head(d, 5) |> knitr::kable()
+```
+
+```{r}
+(flights <- fread(paste0(
+  "https://raw.githubusercontent.com/",
+  "Rdatatable/data.table/master/vignettes/",
+  "flights14.csv") ) ) |>
+  system.time()
+## 用户 系统 流逝 
+## 0.14 0.08 1.24 
+dim(flights)
+## [1] 253316     11
+```
+
+```{r}
+dt = data.table(
+  ID = c("b","b","b","a","a","c"),
+  a = 1:6,
+  b = 7:12,
+  c = 13:18
+)
+knitr::kable(dt)
+```
+
+## 15.6 Access of Files
+
+```{r}
+ll <- readLines("data/class.csv")
+print(head(ll, 3))
+```
+
+```{r}
+ll <- readr::read_lines("data/class.csv")
+print(head(ll, 3))
+```
+
+```{r}
+vnames <- strsplit(ll, ",")[[1]]
+writeLines(vnames, "class-names.txt")
+```
+
+```{r}
+vnames <- scan(
+  "class-names.txt", what=character(),
+  quiet=TRUE)
+vnames
+## [1] "name"   "sex"    "age"    "height" "weight"
+```
+
+## 15.7 Management of Directories and Files
+
+目录和文件管理函数:
+
+-   `getwd()`---返回当前工作目录。
+
+-   `setwd(path)`---设置当前工作目录。
+
+-   `list.files()`或`dir()`---查看目录中内容。 `list.files(pattern=’.*[.]r$’)`可以列出所有以\".r\"结尾的文件。
+
+-   `file.path()`---把目录和文件名组合得到文件路径。
+
+-   `file.info(filenames)`---显示文件的详细信息。
+
+-   `file.exists()`---查看文件是否存在。
+
+-   `file.access()`---考察文件的访问权限。
+
+-   `create.dir()`---新建目录。
+
+-   `file.create()`---生成文件。
+
+-   `file.remove()`或`unlink()`---删除文件。`unlink()`可以删除目录。
+
+-   `file.rename()`---为文件改名。
+
+-   `file.append()`---把两个文件相连。
+
+-   `file.copy()`---复制文件。
+
+-   `basename()`和`dirname()`--- 从一个全路径文件名获取文件名和目录。
