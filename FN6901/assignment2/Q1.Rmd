@@ -5,7 +5,7 @@ date: "2024-09-24"
 output: pdf_document
 ---
 
-## Q1
+## Q1 Years & Days
 
 ### 1) Leap Year
 
@@ -66,7 +66,6 @@ weekdays_28th(2923)
 ```{r}
 library(bizdays)
 
-# Final function for counting working days
 count_working_days <- function(year) {
   if (!is.numeric(year) || year != as.integer(year)) {
     message("Invalid input: The year must be an integer or a numeric in integer format.")
