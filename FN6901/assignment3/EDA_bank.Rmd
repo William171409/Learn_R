@@ -1,0 +1,277 @@
+---
+title: "EDA_bank"
+author: "William HU ZIHAO"
+date: "2024-10-04"
+output: html_notebook
+---
+
+## Step 1 Load Dataset
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+library(conflicted)
+library(tidyverse)
+library(lubridate)
+library(bizdays)
+conflict_prefer("lag", "dplyr")
+conflict_prefer("filter", "dplyr")
+knitr::opts_chunk$set(echo = TRUE, fig.align = "center", collapse = TRUE, cache = TRUE)
+bank <- read_delim("https://bit.ly/4d8jY4I", ";")
+```
+
+## Step 2 Exploratory Data Analysis
+
+### 2.1 Fundamental Analysis
+
+```{r}
+View(bank)
+# Preview the structure of the data
+glimpse(bank)
+```
+
+```{r}
+# Show summary statistics of the data
+summary(bank)
+```
+
+### 2.2 Distribution of Categorical Variables
+
+```{r}
+bank %>%
+  select_if(is.character) %>%
+  map(~table(.) %>% as.data.frame()) %>%
+  imap(~ setNames(.x, c(.y, "Count")))
+
+```
+
+### 2.3 Distribution of Numerical Variables
+
+```{r}
+bank %>%
+  select_if(is.numeric) %>%
+  gather(key = "variable", value = "value") %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black", alpha = 0.7) +
+  facet_wrap(~variable, scales = "free") +
+  theme_minimal() +
+  labs(title = "Distribution of Numeric Variables")
+
+```
+
+### 2.4 Correlations between Numerical Variables
+
+```{r}
+numeric_vars <- bank %>% select_if(is.numeric)
+cor_matrix <- cor(numeric_vars, use = "complete.obs")
+cor_matrix
+```
+
+```{r}
+# Plot a heatmap of the correlation matrix
+library(ggcorrplot)
+ggcorrplot(cor_matrix, method = "circle", lab = TRUE) +
+  labs(title = "Correlation Matrix for Numeric Variables")
+```
+
+### 2.5 Potential Relationship between Variables
+
+#### 2.5.1 Job vs. Age
+
+```{r}
+ggplot(bank, aes(x = job, y = age)) +
+  geom_boxplot(fill = "orange", alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "Boxplot of Age by Job Category", x = "Job", y = "Age")
+```
+
+#### 2.5.2 Martial vs. Balance
+
+```{r}
+ggplot(bank, aes(x = marital, y = balance)) +
+  geom_boxplot(fill = "skyblue", alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "Boxplot of Balance by Marital Status", x = "Marital Status", y = "Balance")
+```
+
+Notice that the visulizations are greatly influenced by the outliers. Thus, we can consider removing outliers in three martial groups for a more direct visulizations of balance by three martial groups.
+
+```{r}
+# Identify outliers by marital status using IQR
+bank_no_outliers <- bank %>%
+  group_by(marital) %>%
+  mutate(IQR = IQR(balance, na.rm = TRUE),
+         Q1 = quantile(balance, 0.25, na.rm = TRUE),
+         Q3 = quantile(balance, 0.75, na.rm = TRUE)) %>%
+  filter(balance >= (Q1 - 1.5 * IQR) & balance <= (Q3 + 1.5 * IQR)) %>%
+  ungroup()  # Remove grouping to get the cleaned dataset
+
+
+# Boxplot of balance by marital status after removing outliers
+ggplot(bank_no_outliers, aes(x = marital, y = balance)) +
+  geom_boxplot(fill = "skyblue", alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "Boxplot of Balance by Marital Status (Without Outliers)",
+       x = "Marital Status", y = "Balance")
+```
+
+```{r}
+# Summarize average and median balance by marital status
+summary_stats <- bank_no_outliers %>%
+  group_by(marital) %>%
+  summarise(
+    avg_balance = mean(balance, na.rm = TRUE),
+    median_balance = median(balance, na.rm = TRUE)
+  )
+
+print(summary_stats)
+
+```
+
+#### 2.5.3 Martial vs. Housing & Personal Loan {#martial-vs.-housing-personal-loan}
+
+```{r}
+housing_loan_stats <- bank %>%
+  group_by(marital) %>%
+  summarise(housing_loan_yes = sum(housing == "yes", na.rm = TRUE),
+            housing_loan_no = sum(housing == "no", na.rm = TRUE),
+            total = n()) %>%
+  mutate(housing_loan_proportion = housing_loan_yes / total)
+
+personal_loan_stats <- bank %>%
+  group_by(marital) %>%
+  summarise(personal_loan_yes = sum(loan == "yes", na.rm = TRUE),
+            personal_loan_no = sum(loan == "no", na.rm = TRUE),
+            total = n()) %>%
+  mutate(personal_loan_proportion = personal_loan_yes / total)
+
+combined_stats <- housing_loan_stats %>%
+  select(marital, housing_loan_proportion) %>%
+  left_join(personal_loan_stats %>% select(marital, personal_loan_proportion), by = "marital")
+
+print(combined_stats)
+
+```
+
+```{r}
+# Reshape data for visualization
+combined_long <- combined_stats %>%
+  pivot_longer(cols = c(housing_loan_proportion, personal_loan_proportion),
+               names_to = "loan_type", values_to = "proportion")
+
+# Bar plot for housing and personal loans by marital status
+ggplot(combined_long, aes(x = marital, y = proportion, fill = loan_type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Proportion of Housing and Personal Loans by Marital Status",
+       x = "Marital Status",
+       y = "Proportion",
+       fill = "Loan Type")
+
+```
+
+#### 2.5.4 Job vs. Subscription (y) {#job-vs.-subscription-y}
+
+```{r}
+job_proportions <- bank %>%
+  group_by(job, y) %>%
+  summarise(count = n()) %>%
+  mutate(ratio = count / sum(count)) %>%
+  filter(y == "yes")  
+
+# Create a bar plot for job type proportions
+ggplot(job_proportions, aes(x = job, y = ratio, fill = y)) +
+  geom_bar(stat = "identity") +  # Use stat = "identity" since we provide y values
+  theme_minimal() +
+  labs(title = "Proportion of Term Deposit Subscriptions by Job Type", x = "Job Type", y = "Proportion") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_continuous(labels = scales::percent)  # Format y-axis as percentages
+
+```
+
+```{r}
+# Exclude job type 'unknown'
+job_subscription_rates<-job_proportions %>% filter(job!='unknown') %>% select(job,ratio) %>% arrange(desc(ratio)) 
+
+job_subscription_rates
+```
+
+```{r}
+head(job_subscription_rates,3)
+tail(job_subscription_rates,3)
+```
+
+#### 2.5.5 Combined effect of Job and Education on Default Rate
+
+```{r}
+combined_insight <- bank %>%
+  filter(job != "unknown", education != "unknown") %>%  # Exclude unknowns
+  group_by(job, education) %>%
+  summarise(
+    total = n(),
+    default_count = sum(default == "yes"),
+    default_rate = default_count / total
+  ) %>%
+  arrange(desc(default_rate))
+
+# Print the combined insight
+print(combined_insight)
+
+
+```
+
+```{r}
+# Visualize the subscription rates by job type and education level
+ggplot(combined_insight, aes(x = job, y = education, fill = default_rate)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "blue") +
+  theme_minimal() +
+  labs(title = "Default Rate by Job Type and Education Level",
+       x = "Job Type", y = "Education Level", fill = "Default Rate") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+## Step 3 Conclusions
+
+### 3.1 Average Yearly Balance by Martial Group
+
+*Code & Results are in* [2.5.2 Martial vs. Balance]
+
+-   **Single and Married individuals** have significantly **higher average and median balances** compared to Divorced individuals.
+
+    -   The **average balance** for Singles is 669.83 and for Married individuals is 663.57, whereas Divorced individuals have a much lower average of 509.89.
+
+    -   Similarly, the **median balance** follows a similar trend, with Divorced individuals having a median balance of 264.00, compared to 363.00 and 342.50 for Singles and Married individuals, respectively.
+
+-   The **disparity between the median and average balances** across all groups indicates **right skewness** in the balance distributions, potentially due to a few individuals with exceptionally high balances.
+
+-   It could be a bit surprising that the mean and median balance of single individuals are higher than that of married individuals. Thus, it might be useful to investigate whether housing loans or personal loans are more common among married individuals, impacting their balances and this is illustrated in [3.2 Proportion of Housing & Personal Loan by Martial Group](#proportion-of-housing-personal-loan-by-martial-group)
+
+### 3.2 Proportion of Housing & Personal Loan by Martial Group {#proportion-of-housing-personal-loan-by-martial-group}
+
+*Code & Results are in* [2.5.3 Martial vs. Housing & Personal Loan](#martial-vs.-housing-personal-loan)
+
+-   Based on the analysis of housing and personal loans across different marital groups, **married individuals** have the highest proportion of clients with housing loans (58.10%), closely followed by **divorced individuals** (56.44%). **Single individuals** have the lowest proportion of housing loans (53.18%).
+
+-   In terms of personal loans, **divorced individuals** lead with 17.05%, while **single individuals** have the lowest proportion at 12.37%.
+
+-   These findings are particularly interesting in light of the previous insight, where it was noted that **single individuals** have higher average and median balances compared to **married individuals**. This indicates that single individuals may manage their finances differently, potentially saving more and incurring fewer debts, thus contributing to their higher average and median balances.
+
+### 3.3 Subscription Rate by Job Type
+
+*Code & Results are in [2.5.4 Job vs. Subscription (y)](#job-vs.-subscription-y)*
+
+-   The subscription rates indicate that **retired individuals** have the highest subscription rate at **23.48%**, closely followed by **students** at **22.62%**. This suggests a strong inclination towards saving and investing among these demographics.
+
+-   The low subscription rate of **blue-collar** reveals that they have the lowest subscription rate at **7.29%**. This might suggest that individuals in blue-collar jobs may prioritize immediate cash flow needs over long-term savings options such as term deposits.
+
+-   Additionally, **entrepreneurs** (8.93%) and **service workers** (9.11%) also exhibit low subscription rates, indicating a possible preference for more flexible financial instruments due to the variability in their incomes.
+
+### 3.4 Combined Effect of Job and Education Level on Default Rate
+
+*Code & Results are in* [2.5.5 Combined effect of Job and Education on Default Rate]
+
+-   **Entrepreneurs** with primary and secondary education have the **highest default rates**, with **7.69%** for those with primary education and **5.17%** for those with secondary education. This suggests that entrepreneurs, especially those with lower education levels, may face financial challenges or inconsistent cash flows that contribute to a higher risk of default.
+
+<!-- -->
+
+-   **Retired individuals** and **blue-collar workers** exhibit some of the lowest default rates, especially for those with secondary or tertiary education. This may indicate that these groups have more stable financial management, possibly due to pensions or steady income streams for blue-collar workers.
