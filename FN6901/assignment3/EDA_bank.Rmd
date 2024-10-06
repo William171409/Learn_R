@@ -272,6 +272,4 @@ ggplot(combined_insight, aes(x = job, y = education, fill = default_rate)) +
 
 -   **Entrepreneurs** with primary and secondary education have the **highest default rates**, with **7.69%** for those with primary education and **5.17%** for those with secondary education. This suggests that entrepreneurs, especially those with lower education levels, may face financial challenges or inconsistent cash flows that contribute to a higher risk of default.
 
-<!-- -->
-
 -   **Retired individuals** and **blue-collar workers** exhibit some of the lowest default rates, especially for those with secondary or tertiary education. This may indicate that these groups have more stable financial management, possibly due to pensions or steady income streams for blue-collar workers.
