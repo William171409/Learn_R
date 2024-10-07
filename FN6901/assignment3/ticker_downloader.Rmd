@@ -1,0 +1,41 @@
+---
+title: "alphavantager"
+author: "William HU ZIHAO"
+date: "2024-10-07"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(alphavantager)
+alphavantage_key <- "SOOVBPKYDOQUGMSF"
+av_api_key(alphavantage_key)
+```
+
+```{r}
+ticker <- toupper('nke')
+```
+
+```{r}
+df_res <- tryCatch({
+  av_get(ticker, av_fun = "TIME_SERIES_WEEKLY_ADJUSTED", outputsize = "compact")
+}, error = function(e) {
+  NULL  
+})
+```
+
+```{r}
+if (!is.null(df_res)) {
+  saveRDS(df_res, file = paste0(ticker, ".Rds"))
+  plot(df_res$timestamp, df_res$adjusted_close, type = "l", col = "green", 
+       main = paste("Adjusted Close Price of", ticker), 
+       xlab = "Date", ylab = "Adjusted Close Price")
+
+} else {
+  cat(paste("Failed to fetch data for ticker:", ticker))
+}
+
+```
