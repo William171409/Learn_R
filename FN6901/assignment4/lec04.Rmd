@@ -1,0 +1,106 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+df <- tibble(x = 1:10, y = 1:10 + runif(10, -2, 2))
+df
+
+plot(df$x, df$y)
+```
+
+```{r}
+ggplot(df, aes(x, y))+geom_point(color='violet')+geom_smooth()
+```
+
+```{r}
+ggplot(df)+geom_point(aes(x,y))
+```
+
+```{r}
+# ggplot(df, aes(x, y)) + geom_smooth() + geom_point(color = "red")
+
+# ggplot composes one figure with different layers
+base_fig <- ggplot(df, aes(x, y))
+
+fig_1 <- base_fig + geom_point(color = "red")
+fig_2 <- base_fig + geom_point(color = "red") + geom_smooth()
+
+# with patchwork, the composition can happen between figures
+library(patchwork)
+
+(fig_1 + fig_1) /fig_2
+```
+
+```{r}
+library(readr)
+
+# Load from my shared file
+bank <- read_delim("https://bit.ly/4d8jY4I",
+";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+```
+
+```{r}
+ggplot(bank, aes(job, age)) + geom_point() +
+  theme(text = element_text(size = 8),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_text(
+    data = bank %>% group_by(job) %>% filter(age == max(age)),
+    aes(label = age),
+    # actual aes is (x = job, y = age, label = age),
+    check_overlap = TRUE,
+    size = 2,
+    vjust = -1
+  )
+```
+
+```{r}
+# how to show the size of clients on the age/job
+bank %>%
+  ggplot(aes(age, job)) +
+  scale_y_discrete(limit = rev(sort(unique(bank$job)))) +
+  geom_point()
+
+bank %>%
+  group_by(age, job) %>%
+  summarize(count = n()) %>%
+  #ungroup() %>%
+    ggplot(aes(age, job)) +
+    geom_point(aes(size=count)) +
+    scale_y_discrete(limit = rev(sort(unique(bank$job))))
+
+bank %>%
+  group_by(age, job) %>%
+  summarize(count = n()) %>%
+  ungroup() %>%
+    ggplot(aes(age, job)) +
+    geom_point(aes(size=count)) +
+    scale_y_discrete(limit = rev(sort(unique(bank$job))))
+```
+
+```{r}
+bank %>%
+  group_by(age, job, loan) %>%
+  summarize(count = n()) %>%
+  ungroup() %>% {
+    ggplot(., aes(age, job)) +
+    geom_point(data = filter(., loan == "no"), aes(age, job, size=count, color = loan), alpha = 0.7) +
+    geom_point(data = filter(., loan == "yes"), aes(age, job, size=count, color = loan), alpha = 0.7) +
+    scale_y_discrete(limit = rev(sort(unique(bank$job))))
+  }
+```
+
+```{r}
+bank %>%
+  group_by(age, job) %>%
+  summarise(loan_yes = sum(if_else(loan == "yes", 1, 0)),
+            loan_no = n() - loan_yes) %>%
+  pivot_longer(starts_with("loan"), names_to = "loan") %>%
+  ggplot() +
+    geom_point(aes(x = age, y = job, alpha = 0.7, size = value, color = loan)) +
+    scale_y_discrete(limit = rev(sort(unique(bank$job))))
+```
