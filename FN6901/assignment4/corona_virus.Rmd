@@ -1,0 +1,49 @@
+---
+title: "Corona Virus Antibody Test"
+author: "William HU ZIHAO"
+date: "2024-10-13"
+output: pdf_document
+---
+
+For shiny app version, please view corona_virus.R.
+
+```{r setup, include=FALSE}
+library(conflicted)
+library(tidyverse)
+library(lubridate)
+library(bizdays)
+conflict_prefer("lag", "dplyr")
+conflict_prefer("filter", "dplyr")
+knitr::opts_chunk$set(echo = TRUE, fig.align = "center", collapse = TRUE, cache = TRUE)
+```
+
+```{r}
+df_sensi <- full_join(
+tibble(x = 1:25, color = "Actual Neg"),
+tibble(y = 1:20, color = "Actual Neg"),
+by = "color", relationship = "many-to-many")
+```
+
+```{r}
+View(df_sensi)
+```
+
+```{r}
+# At 5% infection rate,
+# Positive 500 * 5% = 25 = Actual Pos (24 at 95%) + False Neg (1 at 5%)
+# Negative 500 * 95% = 475 = Actual Neg (451 at 95%) + False Pos (24 at 5%)
+df_sensi["color"] <- c(rep("False Neg", 1),
+rep("Actual Pos", 24),
+rep("False Pos", 24),
+rep("Actual Neg", 500 - 1 - 24 - 24))
+```
+
+```{r}
+ggplot(df_sensi) +
+geom_point(aes(x, y, colour = color),
+size = 4, shape = "circle") +
+theme_bw() +
+theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
+axis.line = element_blank(), axis.text.x = element_blank(),
+axis.text.y = element_blank(), axis.ticks = element_blank())
+```

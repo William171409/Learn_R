@@ -170,7 +170,7 @@ ggplot(subscriptions, aes(x = duration, fill = month)) +
   facet_wrap(~quarter)
 ```
 
-### 2.7  (No) Subscriptions by Contact and Age
+### 2.7 (No) Subscriptions by Contact and Age
 
 ```{r}
 library(patchwork)

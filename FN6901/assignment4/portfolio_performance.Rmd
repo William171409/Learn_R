@@ -1,0 +1,380 @@
+---
+title: "Portfolio Performance"
+author: "William HU ZIHAO"
+date: "2024-10-13"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+library(conflicted)
+library(tidyverse)
+library(lubridate)
+library(bizdays)
+conflict_prefer("lag", "dplyr")
+conflict_prefer("filter", "dplyr")
+knitr::opts_chunk$set(echo = TRUE, fig.align = "center", collapse = TRUE, cache = TRUE)
+```
+
+```{r}
+# library(alphavantager)
+# alphavantage_key <- "SOOVBPKYDOQUGMSF"
+# av_api_key(alphavantage_key)
+```
+
+## Section 1 Load Data from Alphavantager
+
+```{r}
+# fetch_stock_data <- function(symbol) {
+#   tryCatch({
+#     df <- av_get(symbol, av_fun = "TIME_SERIES_DAILY")
+#     df <- df %>%
+#       slice(1:100)
+#     return(df)
+#   }, error = function(e) {
+#     # If there's an error, print a message and return NULL
+#     stop(paste0("Error fetching data for ", symbol, ": ", e$message))
+#   })
+# }
+# 
+# stocks <- c("GS", "PG", "MRK", "LRCX", "SPY")
+# # GS: Goldman Sachs
+# # PG: Procter Gamble
+# # MRK: Merck
+# # LRCX: Lam's Research Lab
+# 
+# stock_data_list <- lapply(stocks, fetch_stock_data)
+```
+
+## Section 2 Save in .rds format in Local Directory
+
+```{r}
+# # Save the data into the /data directory as .rds files
+# dir.create("./data", recursive = TRUE, showWarnings = FALSE)  # Create directory if not exists
+# for (i in seq_along(stocks)) {
+#   if (!is.null(stock_data_list[[i]])) {
+#     saveRDS(stock_data_list[[i]], file = paste0("./data/", stocks[i], ".rds"))
+#   } else {
+#     message(paste("No data to save for", stocks[i]))
+#   }
+# }
+
+```
+
+## Section 3 Load Data from Local Directory
+
+```{r}
+load_stock_data <- function(symbol) {
+  file_path <- paste0("./data/", symbol, ".rds")
+  readRDS(file_path)
+}
+
+# Load all the stock data from the saved files
+GS_data <- load_stock_data("GS")
+PG_data <- load_stock_data("PG")
+MRK_data <- load_stock_data("MRK")
+LRCX_data <- load_stock_data("LRCX")
+SPY_data <- load_stock_data("SPY")
+```
+
+## Section 4 Design the Portfolio
+
+```{r}
+total_cash <- 1e6
+cash_reserve <- 0.05 * total_cash
+investable_cash <- total_cash - cash_reserve
+
+# Get the closing price on day 1 for each stock
+get_first_day_close <- function(stock_data) {
+  return(as.numeric(stock_data$close[1]))
+}
+
+# Closing prices for the 4 stocks
+first_day_prices <- c(
+  GS = get_first_day_close(GS_data),
+  PG = get_first_day_close(PG_data),
+  MRK = get_first_day_close(MRK_data),
+  LRCX = get_first_day_close(LRCX_data)
+)
+```
+
+```{r}
+equal_allocation_amount <- investable_cash / 4
+shares_to_buy <- floor(equal_allocation_amount / first_day_prices)
+
+cat("Actual total investment amount:\n",sum(shares_to_buy*first_day_prices),"\n")
+cat("Portfolio:\n")
+shares_to_buy
+cat("First Day Close Prices:\n")
+first_day_prices
+```
+
+## Section 5 Performance Report
+
+### 5.1 Numerical Indexes
+
+#### 5.1.1 Daily Valuation and Return
+
+```{r}
+stock_data_list <- list(GS_data,PG_data,MRK_data,LRCX_data,SPY_data)
+stocks <- c("GS", "PG", "MRK", "LRCX", "SPY")
+
+valuation_df <- data.frame(timestamp = GS_data$timestamp)
+
+# Calculate daily valuation and returns
+for (i in seq_along(stocks)) {
+  # Calculate daily valuation for each stock
+  if(stocks[i]!='SPY'){
+      stock_prices <- stock_data_list[[i]]$close
+      valuation_df[paste(stocks[i], "valuation", sep = "_")] <- shares_to_buy[i] * stock_prices
+  }
+}
+valuation_df
+```
+
+```{r}
+# Calculate total portfolio valuation as a new column in the valuation_df
+valuation_df$Total_Valuation <- rowSums(valuation_df[, grepl("valuation", colnames(valuation_df))], na.rm = TRUE)
+valuation_df
+```
+
+```{r}
+# Calculate total daily portfolio value
+valuation_df$Daily_Return <- c(NA, diff(valuation_df$Total_Valuation) / head(valuation_df$Total_Valuation, -1))
+valuation_df
+```
+
+#### 5.1.2 Maximum Drawdown
+
+```{r}
+# Function to calculate maximum drawdown
+calculate_max_drawdown <- function(values) {
+  peak <- cummax(values)
+  drawdown <- (peak - values) / peak
+  max(drawdown, na.rm = TRUE)
+}
+
+# Calculate maximum drawdown for the portfolio
+max_drawdown_portfolio <- calculate_max_drawdown(valuation_df$Total_Valuation)
+
+# Calculate maximum drawdown for SPY
+spy_prices <- stock_data_list[[5]]$close  
+max_drawdown_spy <- calculate_max_drawdown(spy_prices)
+
+# Print the maximum drawdowns
+cat("Maximum Drawdown for Portfolio: ", max_drawdown_portfolio * 100, "%\n")
+cat("Maximum Drawdown for SPY: ", max_drawdown_spy * 100, "%\n")
+
+```
+
+#### 5.1.3 Sharpe Ratio
+
+```{r}
+risk_free_rate <- 0.05 / 365
+
+average_daily_return_portfolio <- mean(valuation_df$Daily_Return, na.rm = TRUE)
+
+std_dev_portfolio <- sd(valuation_df$Daily_Return, na.rm = TRUE)
+
+# Calculate the Sharpe ratio for the portfolio
+sharpe_ratio_portfolio <- (average_daily_return_portfolio - risk_free_rate) / std_dev_portfolio
+
+# Calculate average daily return for SPY
+average_daily_return_spy <- mean(diff(spy_prices) / head(spy_prices, -1), na.rm = TRUE)
+
+# Calculate the standard deviation of SPY returns
+std_dev_spy <- sd(diff(spy_prices) / head(spy_prices, -1), na.rm = TRUE)
+
+# Calculate the Sharpe ratio for SPY
+sharpe_ratio_spy <- (average_daily_return_spy - risk_free_rate) / std_dev_spy
+
+# Print the Sharpe Ratios
+cat("Sharpe Ratio for Portfolio: ", sharpe_ratio_portfolio, "\n")
+cat("Sharpe Ratio for SPY: ", sharpe_ratio_spy, "\n")
+
+```
+
+### 5.2 Visualizations
+
+#### 5.2.1 Histogram of Daily Return of Portfolio minus Return of SPY
+
+```{r}
+SPY_daily_return <- c(NA, diff(spy_prices) / head(spy_prices, -1))
+
+# Add SPY daily returns to the valuation_df
+valuation_df$SPY_Daily_Return <- SPY_daily_return
+
+# Calculate the daily return difference
+valuation_df$Return_Difference <- valuation_df$Daily_Return - valuation_df$SPY_Daily_Return
+valuation_df
+```
+
+```{r}
+# Plot histogram of daily return differences
+ggplot(valuation_df, aes(x = Return_Difference)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Daily Return Differences (Portfolio - SPY)",
+       x = "Daily Return Difference",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+```{r}
+# Identify the days with the largest and lowest returns
+largest_return <- valuation_df[which.max(valuation_df$Return_Difference), ]
+lowest_return <- valuation_df[which.min(valuation_df$Return_Difference), ]
+
+cat("Day with Largest Return Difference:\n")
+cat("Date:", format(largest_return$timestamp, "%Y-%m-%d"), "\n")
+cat("Return Difference:", largest_return$Return_Difference, "\n")
+
+cat("\nDay with Lowest Return Difference:\n")
+cat("Date:", format(lowest_return$timestamp, "%Y-%m-%d"), "\n")
+cat("Return Difference:", lowest_return$Return_Difference, "\n")
+
+```
+
+##### 5.2.1.1 Largest Return Difference Date
+
+A closer look at largest return difference day to compare each stock's return to SPY's return on that day
+
+```{r}
+get_previous_index <- function(data_frame, current_index) {
+  if (current_index == 1) return(NA)  # No previous date for the first row
+  for (i in (current_index - 1):1) {
+    if (!is.na(data_frame$timestamp[i])) {
+      return(i)
+    }
+  }
+  return(NA)
+}
+```
+
+```{r}
+largest_index <- which(valuation_df$timestamp == largest_return$timestamp)
+previous_largest_index <- get_previous_index(valuation_df, largest_index)
+
+for (stock in stocks[stocks != "SPY"]) {
+  stock_val_today <- valuation_df[largest_index, paste0(stock, "_valuation")]
+  stock_val_previous <- valuation_df[previous_largest_index, paste0(stock, "_valuation")]
+  stock_return <- (stock_val_today / stock_val_previous) - 1
+  
+  spy_return <- largest_return$SPY_Daily_Return
+  
+  return_diff <- stock_return - spy_return
+  
+  cat(stock, "Return:", round(stock_return * 100, 2), "%", "\n")
+  cat("Compared to SPY (SPY Return:", round(spy_return * 100, 2), "%)\n")
+  cat("Difference:", round(return_diff * 100, 2), "%\n\n")
+}
+
+```
+
+Comment:
+
+Apparently, stock of Lam Research Corporation outperforms the benchmark SPY by a large margin which is about 3.88%. The driving force behind the scene could be that the earning per share of Lam's Research Corporation beats market's expectation according to <https://www.sahmcapital.com/news/content/lam-research-full-year-2024-earnings-eps-beats-expectations-2024-08-05>. Additionally, the Q2 financial results of LRCX was released around 31th July which could account for an upward trend of LRCX return.
+
+##### 5.2.1.2 Least Return Difference Date
+
+A closer look at least return difference day to compare each stock's return to SPY's return on that day
+
+```{r}
+smallest_index <- which(valuation_df$timestamp == lowest_return$timestamp)
+previous_smallest_index <- get_previous_index(valuation_df, smallest_index)
+
+for (stock in stocks[stocks != "SPY"]) {
+  stock_val_today <- valuation_df[smallest_index, paste0(stock, "_valuation")]
+  stock_val_previous <- valuation_df[previous_smallest_index, paste0(stock, "_valuation")]
+  stock_return <- (stock_val_today / stock_val_previous) - 1
+  
+  spy_return <- lowest_return$SPY_Daily_Return
+  
+  return_diff <- stock_return - spy_return
+  
+  cat(stock, "Return:", round(stock_return * 100, 2), "%", "\n")
+  cat("Compared to SPY (SPY Return:", round(spy_return * 100, 2), "%)\n")
+  cat("Difference:", round(return_diff * 100, 2), "%\n\n")
+}
+```
+
+Comment:
+
+Well, the main driver is Lam Research Corporation again as it announced a significant change of capital structure on 02/10/2024 which is just one day before the least return difference observed. Lam Research Corporation implemented a **ten-for-one (10:1)** forward stock split and increasing its authorized shares of common stock tenfold. According to <https://www.investing.com/news/company-news/lam-research-enacts-10for1-stock-split-increases-authorized-shares-93CH-3646202>, Lam Research's recent stock split aligns with its strong market position and financial performance. According to InvestingPro data, the company boasts a substantial market capitalization of \$105.45 billion, reflecting its significant presence in the semiconductor industry. This move to increase accessibility to its shares comes at a time when Lam Research has demonstrated robust financial health and shareholder value.
+
+#### 5.2.2 Valuation vs. Day
+
+```{r}
+initial_spy_price <- SPY_data$close[1]  
+spy_investment <- investable_cash
+
+spy_fractional_shares <- spy_investment / initial_spy_price
+
+spy_valuation <- SPY_data$close * spy_fractional_shares
+
+valuation_df$SPY_Valuation <- spy_valuation
+valuation_df
+```
+
+```{r}
+ggplot(valuation_df, aes(x = timestamp)) +
+  geom_line(aes(y = Total_Valuation, color = "Portfolio Valuation"), linewidth = 1.2) +
+  geom_line(aes(y = SPY_Valuation, color = "SPY Valuation"), linewidth = 1.2, linetype = "dashed") +
+  labs(title = "Portfolio Valuation vs SPY Valuation Over Time",
+       x = "Date",
+       y = "Valuation (in $)",
+       color = "Legend") +
+  theme_minimal() +
+  scale_color_manual(values = c("Portfolio Valuation" = "blue", "SPY Valuation" = "red")) +
+  theme(legend.position = "bottom")
+```
+
+#### 5.2.3 Relative valuation for the Allocations of the Portfolio
+
+```{r}
+for (i in seq_along(stocks)) {
+  if (stocks[i] != 'SPY') {
+    stock_valuation_col <- paste(stocks[i], "valuation", sep = "_")
+    valuation_df[paste(stocks[i], "relative_valuation", sep = "_")] <- 
+      valuation_df[[stock_valuation_col]] / valuation_df$Total_Valuation
+  }
+}
+
+valuation_df$Cash_relative_valuation <- cash_reserve / valuation_df$Total_Valuation
+```
+
+```{r}
+# Gather the data for the area plot (stocks and cash relative valuations)
+relative_valuation_long <- valuation_df %>%
+  select(timestamp, ends_with("relative_valuation")) %>%
+  pivot_longer(cols = -timestamp, names_to = "Stock", values_to = "Relative_Valuation")
+
+# Replace stock names for readability
+relative_valuation_long$Stock <- gsub("_relative_valuation", "", relative_valuation_long$Stock)
+```
+
+```{r}
+# Create the area plot
+ggplot(relative_valuation_long, aes(x = as.Date(timestamp), y = Relative_Valuation, fill = Stock)) +
+  geom_area(position = "stack") +
+  labs(title = "Relative Valuation of Stocks and Cash Over Time",
+       x = "Date", 
+       y = "Relative Valuation",
+       fill = "Stock/Cash") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+```
+
+1\. **Overall Stability:**
+
+-   The allocations appear to be relatively stable throughout the period, indicating that the portfolio is mostly consistent in its composition.
+
+2\. **Changes in Stocks:**
+
+-   There is a significant fluctuations in the proportion allocated to individual stocks, especially around the beginning of October. A sharp decrease of the relative valuation of LRCX was witnessed and the underlying reasons have been discussed in [5.2.1.2 Least Return Difference Date]
+
+3\. **Cash Allocation:**
+
+-   The cash allocation (red) remains fairly low and constant, suggesting that the portfolio stayed heavily invested in stocks with minimal adjustments to the cash reserve over time.
