@@ -1,30 +1,9 @@
----
-title: "Option trading - dynamic hedging"
-subtitle: "FN6901 Group Assignment"
-author:
-  - "Team A"
-  - "Author: XU SHUMING"
-  - "Reviewer1: WANG QIANTENG"
-  - "Reviewer2: HU ZIHAO"
-output: 
-    html_document:
-      toc: yes
-      toc_float: true
-      theme: lumen
-editor_options:
-    markdown:
-        wrap: 72
----
-
-```{r setup, include=FALSE}
-library(purrr)
-library(tidyverse)
-library(NMOF)
-```
+Option trading - dynamic hedging
+================
 
 # 0. Set Seed and Constants
 
-```{r}
+``` r
 set.seed(314123)
 # Define parameters
 num_sim<-1000
@@ -44,7 +23,7 @@ p2 <- sigma_rel * sqrt(timestep)
 
 # 1. Define Function to Run Option PnL Simulation
 
-```{r}
+``` r
 # Function to simulate option PnL
 simulate_option_pnl <- function(number_of_simulations, S, K, sigma_rel, sigma_imp, r_val, q_val, timestep, days, p1, p2) {
   
@@ -131,12 +110,11 @@ simulate_option_pnl <- function(number_of_simulations, S, K, sigma_rel, sigma_im
   # Return simulation results
   return(sim_results)
 }
-
 ```
 
 # 2. Run Simulations
 
-```{r}
+``` r
 (sim_result <- simulate_option_pnl(
   number_of_simulations = num_sim, 
   S = S, 
@@ -152,6 +130,21 @@ simulate_option_pnl <- function(number_of_simulations, S, K, sigma_rel, sigma_im
 ))
 ```
 
+    ## # A tibble: 1,000 × 6
+    ##    option_PnL gamma_PnL delta_PnL theta_PnL vega_PnL vega0
+    ##         <dbl>     <dbl>     <dbl>     <dbl>    <dbl> <dbl>
+    ##  1      5.96      2.24      5.12     -1.34         0  11.3
+    ##  2      3.69      1.94      3.54     -1.94         0  11.3
+    ##  3     -0.648     1.81     -0.253    -2.24         0  11.3
+    ##  4     -3.38      1.77     -3.12     -2.07         0  11.3
+    ##  5     -3.23      1.26     -1.80     -2.19         0  11.3
+    ##  6     -3.38      0.795    -3.06     -1.16         0  11.3
+    ##  7     -3.38      1.27     -3.35     -1.31         0  11.3
+    ##  8      7.41      1.25      6.86     -0.666        0  11.3
+    ##  9     -3.38      0.979    -2.54     -1.86         0  11.3
+    ## 10     12.7       2.03     12.7      -1.75         0  11.3
+    ## # ℹ 990 more rows
+
 # 3. Analysis
 
 ## 3.1 Approximation of PnL by Taylor Expansion
@@ -160,7 +153,7 @@ simulate_option_pnl <- function(number_of_simulations, S, K, sigma_rel, sigma_im
     option PnL (which is the difference between option price on day 20
     and option price on day 0).
 
-```{r}
+``` r
 sim_result %>%
   summarize(
     Taylor_approx = mean(gamma_PnL + theta_PnL+delta_PnL+vega_PnL),
@@ -169,18 +162,28 @@ sim_result %>%
   )
 ```
 
-## 3.2 Gamma & Theta Neutralization {#gamma-theta-neutralization}
+    ## # A tibble: 1 × 3
+    ##   Taylor_approx Option_PnL Difference
+    ##           <dbl>      <dbl>      <dbl>
+    ## 1        0.0654     0.0567   -0.00873
+
+## 3.2 Gamma & Theta Neutralization
 
 2.  When realized volatility and implied volatility are the same, Gamma
     and Theta can neutralize each other,
     i.e. $\sum_{i}^{N}(GammaPnL_i + ThetaPnL_i) \approx 0$
 
-```{r}
+``` r
 sim_result %>%
   summarize(
     Gamma_Theta_Sum = mean(gamma_PnL + theta_PnL)
   )
 ```
+
+    ## # A tibble: 1 × 1
+    ##   Gamma_Theta_Sum
+    ##             <dbl>
+    ## 1        -0.00883
 
 ## 3.3 Approximation of Sell Side PnL by Vega
 
@@ -191,7 +194,7 @@ sim_result %>%
     delta hedging PnL. We assume zero transaction fee. Be aware that the
     sell side shall fulfill option payoff to the client.
 
-```{r}
+``` r
 (sim_result <- simulate_option_pnl(
   number_of_simulations = num_sim, 
   S = S, 
@@ -207,7 +210,22 @@ sim_result %>%
 ))
 ```
 
-```{r}
+    ## # A tibble: 1,000 × 6
+    ##    option_PnL gamma_PnL delta_PnL theta_PnL vega_PnL vega0
+    ##         <dbl>     <dbl>     <dbl>     <dbl>    <dbl> <dbl>
+    ##  1     -2.60      1.09      0.368     -4.00        0  11.3
+    ##  2     -3.23      1.15     -0.116     -4.07        0  11.3
+    ##  3     -5.64      1.80     -3.58      -4.05        0  11.3
+    ##  4     -5.64      1.97     -4.06      -3.74        0  11.3
+    ##  5     -5.64      1.25     -3.56      -3.48        0  11.3
+    ##  6     -5.64      1.09     -1.54      -4.49        0  11.3
+    ##  7     -5.09      1.10     -1.05      -4.50        0  11.3
+    ##  8     -5.64      0.761    -2.16      -4.28        0  11.3
+    ##  9     -0.446     1.28      2.34      -4.19        0  11.3
+    ## 10     -5.64      1.22     -1.65      -4.51        0  11.3
+    ## # ℹ 990 more rows
+
+``` r
 sim_result %>%
   summarize(
     Sell_PnL = mean(delta_PnL-option_PnL),
@@ -215,31 +233,37 @@ sim_result %>%
   )
 ```
 
+    ## # A tibble: 1 × 2
+    ##   Sell_PnL estimated_Sell_PnL
+    ##      <dbl>              <dbl>
+    ## 1     2.24               2.25
+
 # 4. Conclusion
 
--   The first result [3.1 Approximation of PnL by Taylor Expansion]
-    shows that the sum of daily Taylor expansion is a close
-    approximation to the actual option PnL. The small difference between
-    the Taylor-approximated PnL and the actual PnL (average difference ≈
-    -0.0087 over 1000 simulations) demonstrates that the linearized PnL
-    (using delta, gamma, theta, and vega terms) provides a reasonably
-    accurate prediction of the overall PnL.
+- The first result [3.1 Approximation of PnL by Taylor
+  Expansion](#approximation-of-pnl-by-taylor-expansion) shows that the
+  sum of daily Taylor expansion is a close approximation to the actual
+  option PnL. The small difference between the Taylor-approximated PnL
+  and the actual PnL (average difference ≈ -0.0087 over 1000
+  simulations) demonstrates that the linearized PnL (using delta, gamma,
+  theta, and vega terms) provides a reasonably accurate prediction of
+  the overall PnL.
 
--   When realized volatility and implied volatility are the same, the
-    empirical results [3.2 Gamma & Theta
-    Neutralization](#gamma-theta-neutralization) show that the average
-    sum of Gamma PnL and Theta PnL across 1000 simulations is
-    approximately -0.0088, which is very close to zero. This confirms
-    that Gamma and Theta contributions tend to neutralize each other
-    over time. The small deviation from zero is due to the non-linear
-    nature of option pricing and the discretization of daily hedging.
+- When realized volatility and implied volatility are the same, the
+  empirical results [3.2 Gamma & Theta
+  Neutralization](#gamma-theta-neutralization) show that the average sum
+  of Gamma PnL and Theta PnL across 1000 simulations is approximately
+  -0.0088, which is very close to zero. This confirms that Gamma and
+  Theta contributions tend to neutralize each other over time. The small
+  deviation from zero is due to the non-linear nature of option pricing
+  and the discretization of daily hedging.
 
--   The average actual PnL from 1000 simulations [3.3 Approximation of
-    Sell Side PnL by Vega] is approximately 2.237, while the estimated
-    PnL using the volatility difference is 2.251. The small difference
-    between the two values highlights the accuracy of the approximation,
-    validating that, as implied volatility is higher than realized
-    volatility, the sell side earns a profit close to the expected
-    value. The deviation can be attributed to the non-linearities of
-    option pricing. Nonetheless, the results are consistent with
-    theoretical expectations.
+- The average actual PnL from 1000 simulations [3.3 Approximation of
+  Sell Side PnL by Vega](#approximation-of-sell-side-pnl-by-vega) is
+  approximately 2.237, while the estimated PnL using the volatility
+  difference is 2.251. The small difference between the two values
+  highlights the accuracy of the approximation, validating that, as
+  implied volatility is higher than realized volatility, the sell side
+  earns a profit close to the expected value. The deviation can be
+  attributed to the non-linearities of option pricing. Nonetheless, the
+  results are consistent with theoretical expectations.
