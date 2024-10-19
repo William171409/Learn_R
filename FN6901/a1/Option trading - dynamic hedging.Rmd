@@ -1,0 +1,107 @@
+---
+title: "Option trading - dynamic hedging"
+subtitle: "FN6901 Group Assignment"
+author: 
+  - "Team A"
+  - "Author: XU SHUMING"
+  - "Reviewer1: WANG QIANTENG"
+  - "Reviewer2: HU ZIHAO"
+output:
+    html_document: 
+      toc: yes
+      toc_float: true
+      theme: lumen
+editor_options:
+    markdown:
+        wrap: 72
+---
+
+```{r setup, include=FALSE}
+library(purrr)
+library(tidyverse)
+library(NMOF)
+```
+
+# 0. Set Seed and Constants
+
+```{r, include = TRUE}
+set.seed(314123)
+# Constants
+S <- 100
+K <- 100
+sigma_rel <- 0.3
+sigma_imp <- 0.5
+r_val <- 0
+q_val <- 0
+days <- 20
+num_simulations <- 1000
+```
+
+1.  Function to Run a Single Simulation
+
+```{r, include = TRUE}
+run_simulation <- function() {
+  # Generate price paths
+  ss <- c(S, rep(S, days) * cumprod(rlnorm(days, mean = (r_val - q_val - 0.5 * sigma_rel^2) * (1/250), sd = sigma_rel * sqrt(1/250))))
+  
+  # Initialize dataframe for results
+  df <- tibble(S = ss, days = days:0, var = sigma_imp^2, strike = K)
+  
+  # Calculate option prices and Greeks
+  opt <- df %>%
+    rowwise() %>%
+    mutate(
+      result = ifelse(
+        days == 0,
+        list(list(value = max(S - strike, 0), delta = 0, gamma = 0, theta = 0)),
+        list(NMOF::vanillaOptionEuropean(S = S, X = strike, tau = days / 250, r = r_val, q = q_val, v = var, type = "call", greeks = TRUE))
+      )
+    ) %>%
+    ungroup()
+  
+  # Extract values from result
+  opt <- opt %>%
+    mutate(
+      price = map_dbl(result, "value"),
+      delta = map_dbl(result, "delta"),
+      gamma = map_dbl(result, "gamma"),
+      theta = map_dbl(result, "theta")
+    )
+  
+  # Calculate daily PnL using Taylor expansion
+  daily_pnl <- sum((opt$delta * diff(c(S[1], ss)) + 
+                      0.5 * opt$gamma * diff(c(S[1], ss))^2 +
+                      opt$theta * (1/250)))
+  
+  # Calculate final PnL
+  final_pnl <- tail(opt$price, 1) - opt$price[1]  # PnL from option price change
+  
+  return(tibble(daily_pnl = daily_pnl, final_pnl = final_pnl))
+}
+```
+
+2.  Run simulations
+
+```{r, include = TRUE}
+results <- bind_rows(map(1:num_simulations, ~ run_simulation()))
+print(results)
+```
+
+3.  Summarize results
+
+```{r, include = TRUE}
+summary_results <- tibble(
+  avg_daily_pnl = mean(results$daily_pnl),
+  avg_final_pnl = mean(results$final_pnl),
+  sd_daily_pnl = sd(results$daily_pnl),
+  sd_final_pnl = sd(results$final_pnl)
+)
+
+summary_results
+```
+
+4.  Conclusion
+
+```{r, include = TRUE}
+##While daily operations appear profitable, the overall strategy results in a loss. Possible reasons include market volatility and unfavorable strike price dynamics. Further analysis of volatility, strike selection, or holding strategies may help improve outcomes.
+```
