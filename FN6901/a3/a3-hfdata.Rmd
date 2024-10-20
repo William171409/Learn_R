@@ -1,0 +1,398 @@
+---
+title: "FN6901 Group Project"
+subtitle: "High Frequency Data Analysis"
+author: 
+  - "Team A"
+  - "Author: Wang Qianteng"
+  - "Reviewer1: Hu Zihao"
+  - "Reviewer2: Xu Shuming"
+output: 
+    html_document:
+      toc: yes
+      toc_float: true
+      theme: lumen
+editor_options:
+    markdown:
+        wrap: 72
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(conflicted)
+conflict_prefer("filter", "dplyr")
+conflict_prefer("lag", "dplyr")
+```
+
+## 1. Exploratory Data Analysis
+
+This section provides a brief EDA of the data.
+
+```{r, fig.width=10, fig.height=3}
+# Load the data
+data_dir <- "data"
+df <- readRDS(file.path(data_dir, "df_rb2305_am1.Rds"))
+df <- df %>%
+  mutate(Volume = as.numeric(Volume), BVol1 = as.numeric(BVol1), SVol1 = as.numeric(SVol1))
+# Summary of relevant columns
+summary(df[c("TradingDay", "LastPrice", "BPrice1", "BVol1", "SPrice1", "SVol1", "Volume",    "Turnover")])
+```
+
+### 1.1 Price and Volume over Time
+
+```{r, fig.width=10, fig.height=3}
+# Plot Last Price over time
+ggplot(df, aes(x = datetime, y = LastPrice)) +
+  geom_line(color = "blue") +
+  labs(title = "Last Price Over Time", x = "Time", y = "Last Price")
+
+# Plot BPrice1 and SPrice1 over time
+ggplot(df, aes(x = datetime)) +
+  geom_line(aes(y = BPrice1, color = "Buy Price 1")) +
+  geom_line(aes(y = SPrice1, color = "Sell Price 1")) +
+  labs(title = "Buy and Sell Prices Over Time", x = "Time", y = "Price") +
+  scale_color_manual(values = c("Buy Price 1" = "blue", "Sell Price 1" = "red"))
+
+# Plot Volume over time
+ggplot(df, aes(x = datetime, y = Volume)) +
+  geom_line(color = "green") +
+  labs(title = "Volume Over Time", x = "Time", y = "Volume")
+```
+
+Prices fluctuate frequently in this active market. Also, the narrow
+spread between the buy and sell prices signals a highly liquid market.
+This typically suggests an efficient market with plenty of trading
+activity. The volume increases steadily, which shows consistent
+attention on this futures contract.
+
+### 1.2 Turnover and Average Price
+
+```{r, fig.width=10, fig.height=3}
+# Plot Turnover over time
+ggplot(df, aes(x = datetime, y = Turnover)) +
+  geom_line(color = "purple") +
+  labs(title = "Turnover Over Time", x = "Time", y = "Turnover")
+
+# Calculate and plot Average Price (Turnover / Volume / 10)
+df <- df %>%
+  mutate(AveragePrice = Turnover / Volume / 10)
+
+ggplot(df, aes(x = datetime, y = AveragePrice)) +
+  geom_line(color = "orange") +
+  labs(title = "Average Price Over Time", x = "Time", y = "Average Price")
+
+```
+
+The steady increase of turnover again indicates the high liquidity of
+the futures market. However, the average price showed a clear downward
+trend, particularly in the beginning of the time window. This might
+suggest selling pressure or negative sentiment in the market.
+
+## 2. Factors
+
+In this section, we implement several factors.
+
+### 2.1 Quote_spread / Mid_price / Micro_price / Average Price
+
+```{r, fig.width=10, fig.height=3}
+# 1. Calculate Quoted Spread
+df <- df %>%
+  mutate(QuotedSpread = SPrice1 - BPrice1)
+
+# 2. Calculate Midprice
+df <- df %>%
+  mutate(Midprice = (SPrice1 + BPrice1) / 2)
+
+# 3. Calculate Microprice (volume-weighted price)
+df <- df %>%
+  mutate(Microprice = (SVol1 * SPrice1 + BVol1 * BPrice1) / (SVol1 + BVol1))
+
+# 4. Calculate VWAP (Volume Weighted Average Price)
+df <- df %>%
+  mutate(VWAP = Turnover / (Volume * 10))
+
+# Plot the factors over time
+# 1. Plot Quoted Spread
+ggplot(df, aes(x = datetime, y = QuotedSpread)) +
+  geom_line(color = "blue") +
+  labs(title = "Quoted Spread Over Time", x = "Time", y = "Quoted Spread")
+
+# 2. Plot Midprice
+ggplot(df, aes(x = datetime, y = Midprice)) +
+  geom_line(color = "green") +
+  labs(title = "Midprice Over Time", x = "Time", y = "Midprice")
+
+# 3. Plot Microprice
+ggplot(df, aes(x = datetime, y = Microprice)) +
+  geom_line(color = "orange") +
+  labs(title = "Microprice Over Time", x = "Time", y = "Microprice")
+
+# 4. Plot VWAP
+ggplot(df, aes(x = datetime, y = VWAP)) +
+  geom_line(color = "purple") +
+  labs(title = "VWAP Over Time", x = "Time", y = "VWAP")
+```
+
+**Quoted Spread** shows frequent fluctuations, with periods of both high
+and low liquidity. Overall, the spread is small. **Midprice** and
+**Microprice** demonstrate a very similar pattern. This may suggest that
+these two factors are highly correlated with the bid and ask prices.
+**VWAP** shows a smooth downward curve. It may suggest bearish
+sentiment.
+
+### 2.2 The Imbalance between the volume on the best bid and best ask
+
+```{r, fig.width=10, fig.height=3}
+# Calculate the order book imbalance
+df <- df %>%
+  mutate(V_imbalance = log(BVol1 / SVol1))
+
+# Plot the imbalance over time
+ggplot(df, aes(x = datetime, y = V_imbalance)) +
+  geom_line(color = "blue") +
+  labs(title = "Order Book Imbalance Over Time",
+       x = "Time",
+       y = "Order Book Imbalance") +
+  theme_minimal()
+```
+
+This **Order Book Imbalance** reflects the relative strength of buyers
+versus sellers. There is no clear sustained trend in either positive or
+negative direction. This aligns with the behavior of an active and
+liquid market.
+
+### 2.3 Volume Order Imbalance (VOI)
+
+```{r}
+# Calculate Volume Order Imbalance (VOI)
+df <- df %>%
+  mutate(
+    PB_t_1 = lag(BPrice1),   # Previous bid price
+    PA_t_1 = lag(SPrice1),   # Previous ask price
+    VB_t_1 = lag(BVol1),     # Previous bid volume
+    VA_t_1 = lag(SVol1)      # Previous ask volume
+  )
+
+df <- df %>%
+  mutate(
+    delta_VB_t = case_when(
+      BPrice1 < PB_t_1 ~ 0,
+      BPrice1 == PB_t_1 ~ BVol1 - VB_t_1,
+      BPrice1 > PB_t_1 ~ BVol1
+    ),
+    delta_VA_t = case_when(
+      SPrice1 < PA_t_1 ~ SVol1,
+      SPrice1 == PA_t_1 ~ SVol1 - VA_t_1,
+      SPrice1 > PA_t_1 ~ 0
+    ),
+    VOI = delta_VB_t - delta_VA_t
+  )
+
+# Plot the VOI over time
+ggplot(df, aes(x = datetime, y = VOI)) +
+  geom_line(color = "blue") +
+  labs(title = "Volume Order Imbalance Over Time",
+       x = "Time",
+       y = "VOI") +
+  theme_minimal()
+```
+
+The VOI fluctuates significantly, with some extreme values. The VOI
+values stabilize in later time, suggesting that the market becomes more
+balanced.
+
+```{r}
+# Calculate the future price move normalized by the spread
+df <- df %>%
+  arrange(datetime) %>%
+  mutate(PriceMove = (lead(LastPrice, 1) - LastPrice) / (SPrice1 - BPrice1))
+
+# Bin the Volume Imbalance into buckets
+df <- df %>%
+  mutate(VOIBucket = cut(VOI, breaks = seq(-700, 800, by = 50), include.lowest = TRUE))
+
+df_summary <- df %>%
+  group_by(VOIBucket) %>%
+  summarize(AvgPriceMove = mean(PriceMove, na.rm = TRUE))
+
+# Plot the VOI vs average future price move
+ggplot(df_summary, aes(x = VOIBucket, y = AvgPriceMove)) +
+  geom_point(color = "blue") +
+  labs(title = "Volume Order Imbalance (VOI) vs Price Move",
+       x = "VOI (Bucketed)",
+       y = "Price Move (normalized by spreads)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45))
+
+```
+
+There is a clear positive correlation between VOI and future price
+moves, although there are outliers at extreme values of VOI.Therefore,
+VOI might be a strong predictor of short-term price direction.
+
+### 2.4 Order Flow Imbalance
+
+In this section, we implement volume imbalance and explores its
+properties.
+
+```{r, fig.width=10, fig.height=3}
+# Calculate volume imbalance
+df <- df %>%
+  mutate(VolumeImbalance = (BVol1 - SVol1) / (BVol1 + SVol1))
+
+# Plot volume imbalance over time
+ggplot(df, aes(x = datetime, y = VolumeImbalance)) +
+  geom_line(color = "red") +
+  labs(title = "Volume Imbalance Over Time", x = "Time", y = "Volume Imbalance")
+```
+
+The plot suggests that volume imbalance varies from -1 to 1 frequently
+and does not have a long-term trend.
+
+```{r, fig.width=10, fig.height=6}
+
+# Bin the Volume Imbalance into buckets
+df <- df %>%
+  mutate(VolumeImbalanceBucket = cut(VolumeImbalance, breaks = seq(-1, 1, by = 0.1), include.lowest = TRUE))
+
+# Calculate the average price move for each bucket
+df_summary <- df %>%
+  group_by(VolumeImbalanceBucket) %>%
+  summarize(AvgPriceMove = mean(PriceMove, na.rm = TRUE))
+
+# Plot the volume imbalance vs average future price move
+ggplot(df_summary, aes(x = VolumeImbalanceBucket, y = AvgPriceMove)) +
+  geom_point(color = "blue") +
+  labs(title = "Volume Imbalance vs Price Move",
+       x = "Book Imbalance (Bucketed)",
+       y = "Price Move (normalized by spreads)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45))
+
+```
+
+There is no evidence of a significant correlation between **Volume
+Imbalance** and price move. This might be explained by the narrow spread
+and high liquidity of this futures contract.
+
+We also investigate **Net Order Flow Imbalance (OFI)**.
+
+```{r, fig.width=10, fig.height=3}
+# Calculate ΔVb (Change in Bid Volume)
+df <- df %>%
+  arrange(datetime) %>%
+  mutate(
+    DeltaVb = case_when(
+      BPrice1 > lag(BPrice1, 1) ~ BVol1,
+      BPrice1 == lag(BPrice1, 1) ~ BVol1 - lag(BVol1, 1),
+      BPrice1 < lag(BPrice1, 1) ~ -lag(BVol1, 1)
+    )
+  )
+
+# Calculate ΔVa (Change in Ask Volume)
+df <- df %>%
+  mutate(
+    DeltaVa = case_when(
+      SPrice1 > lag(SPrice1, 1) ~ -lag(SVol1, 1),
+      SPrice1 == lag(SPrice1, 1) ~ SVol1 - lag(SVol1, 1),
+      SPrice1 < lag(SPrice1, 1) ~ SVol1
+    )
+  )
+
+# 3. Calculate the Net Order Flow Imbalance (OFI)
+df <- df %>%
+  mutate(OFI = DeltaVb - DeltaVa)
+
+# Plot the Net Order Flow Imbalance over time
+ggplot(df, aes(x = datetime, y = OFI)) +
+  geom_line(color = "blue") +
+  labs(title = "Net Order Flow Imbalance (OFI) Over Time",
+       x = "Time",
+       y = "Net Order Flow Imbalance (OFI)") +
+  theme_minimal()
+```
+
+The fluctuations in OFI over time reflect the dynamic nature of the
+market, with continuous shifts in buying and selling pressure. Early in
+the session, there are more extreme fluctuations, indicating periods of
+higher volatility.
+
+```{r, fig.width=10, fig.height=6}
+# Bin the Volume Imbalance into buckets
+df <- df %>%
+  mutate(OFIBucket = cut(OFI, breaks = seq(-900, 900, by = 100), include.lowest = TRUE))
+
+df_summary <- df %>%
+  group_by(OFIBucket) %>%
+  summarize(AvgPriceMove = mean(PriceMove, na.rm = TRUE))
+
+# Plot the volume imbalance vs average future price move
+ggplot(df_summary, aes(x = OFIBucket, y = AvgPriceMove)) +
+  geom_point(color = "blue") +
+  labs(title = "Net Order Flow Imbalance (OFI) vs Price Move",
+       x = "OFI (Bucketed)",
+       y = "Price Move (normalized by spreads)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45))
+```
+
+A linear tendency can be seen from the graph, indicating that OFI could
+be a strong predictor of short-term price direction.
+
+## 3. Regression Test
+
+In this section, we perform a linear regression test to examine the
+usefulness of the above factors in predicting price move.
+
+```{r}
+factors <- c("QuotedSpread", "Midprice", "Microprice", "Turnover", 
+             "V_imbalance", "VOI", "VolumeImbalance", "OFI")
+
+results <- data.frame(Factor = character(), 
+                      Alpha_t_stat = numeric(), 
+                      Alpha_p_value = numeric(), 
+                      Alpha_count = numeric(), 
+                      Beta_t_stat = numeric(), 
+                      Beta_p_value = numeric(), 
+                      Beta_count = numeric())
+
+for (factor in factors) {
+  # Fit the regression model: Price ~ Factor
+  model <- lm(df$Price ~ df[[factor]], data = df)
+  
+  # Get model summary
+  summary_model <- summary(model)
+  
+  # Extract the coefficients (alpha = intercept, beta = factor's coefficient)
+  alpha <- summary_model$coefficients[1, ]
+  beta <- summary_model$coefficients[2, ] 
+  
+  row <- data.frame(
+    Factor = factor,
+    Alpha_t_stat = alpha["t value"],
+    Alpha_p_value = alpha["Pr(>|t|)"],
+    Beta_t_stat = beta["t value"],
+    Beta_p_value = beta["Pr(>|t|)"]
+  )
+  
+  results <- rbind(results, row)
+}
+
+# Display the results table
+results
+```
+
+**VOI (Volume Order Imbalance)** and **OFI (Net Order Flow Imbalance)**
+are the two factors that show statistically significant predictive power
+for future price moves. **VOI** indicates that the imbalance between buy
+and sell volumes strongly predicts future price changes. More buying
+pressure (higher VOI) leads to price increases. **OFI** shows that the
+net order flow imbalance is also highly predictive of price moves.
+Larger OFI values (either positive or negative) are correlated with
+larger price moves.
+
+The **other factors** (QuotedSpread, Midprice, Microprice, Turnover,
+V_imbalance, and VolumeImbalance) do not show significant predictive
+power based on their p-values, indicating they are not useful for
+predicting short-term price moves in this context.
